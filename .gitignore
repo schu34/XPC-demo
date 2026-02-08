@@ -1,0 +1,27 @@
+# Compiled executables
+service
+client
+demo
+demo_simple
+main
+
+# Object files
+*.o
+
+# Debug symbols
+*.dSYM/
+
+# macOS
+.DS_Store
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Build artifacts
+*.a
+*.so
+*.dylib
