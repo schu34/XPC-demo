@@ -1,80 +1,73 @@
-# Makefile for XPC Demo
+# Top-level Makefile for XPC Demos
+# This project demonstrates XPC (inter-process communication) on macOS
 
-CC = clang
+.PHONY: all clean help single-process service-based
 
-# -fblocks is needed for using blocks (eg `^(char foo){printf(foo)}`) in C, which is common in XPC code
-CFLAGS = -Wall -Wextra -g -fblocks
-LDFLAGS = -framework Foundation
+# Default: build all demos
+all: single-process service-based
 
-# Targets
-TARGETS = service client demo demo_simple
-MAIN = main
+# Build single-process demo
+single-process:
+	@echo "Building single-process demo..."
+	@$(MAKE) -C demos/single-process
 
-.PHONY: all clean run
+# Build service-based demo
+service-based:
+	@echo "Building service-based demo..."
+	@$(MAKE) -C demos/service-based
 
-all: $(TARGETS)
+# Run single-process demo
+run-single-process:
+	@echo "Running single-process demo..."
+	@$(MAKE) -C demos/single-process run
 
-# Build service executable
-service: service.c
-	$(CC) $(CFLAGS) -o service service.c $(LDFLAGS)
+# Run service-based demo
+run-service-based:
+	@echo "Running service-based demo..."
+	@$(MAKE) -C demos/service-based run
 
-# Build client executable
-client: client.c
-	$(CC) $(CFLAGS) -o client client.c $(LDFLAGS)
-
-# Build demo (combined service + client in one binary with fork)
-demo: demo.c
-	$(CC) $(CFLAGS) -o demo demo.c $(LDFLAGS)
-
-# Build simple demo (service + client in same process)
-demo_simple: demo_simple.c
-	$(CC) $(CFLAGS) -o demo_simple demo_simple.c $(LDFLAGS)
-
-# Build original main
-main: main.c
-	$(CC) $(CFLAGS) -o main main.c $(LDFLAGS)
-
-# Run the simple demo (default)
-run: demo_simple
-	./demo_simple
-
-# Run the multi-process demo (experimental - has issues)
-run-multi: demo
-	./demo
-
-# Build the XPC service bundle (production-style)
-bundle:
-	./build_bundle.sh
-
-# Run the XPC service bundle demo
-run-bundle: bundle
-	./build/XPCDemo.app/Contents/MacOS/XPCDemo
-
-# Clean up
+# Clean all demos
 clean:
-	rm -f $(TARGETS) $(MAIN) *.o
-	rm -rf *.dSYM build
+	@echo "Cleaning all demos..."
+	@$(MAKE) -C demos/single-process clean
+	@$(MAKE) -C demos/service-based clean
+	rm -f demo.c demo_simple.c service.c client.c main.c
+	rm -f demo demo_simple service client main
+	rm -f xpc_app.c xpc_service.c
+	rm -f AppInfo.plist ServiceInfo.plist build_bundle.sh
+	rm -rf build *.o *.dSYM
 
 # Help
 help:
-	@echo "XPC Demo Makefile"
+	@echo "XPC Demos - macOS Inter-Process Communication"
+	@echo ""
+	@echo "This project contains two XPC demo approaches:"
+	@echo ""
+	@echo "1. Single-Process Demo (demos/single-process/)"
+	@echo "   - Client and service in the same process"
+	@echo "   - Great for learning XPC APIs"
+	@echo "   - Simple to build and run"
+	@echo ""
+	@echo "2. Service-Based Demo (demos/service-based/)"
+	@echo "   - PRODUCTION PATTERN with proper .xpc bundle"
+	@echo "   - Client and service in separate processes"
+	@echo "   - Uses macOS service discovery"
+	@echo "   - How real apps implement XPC"
 	@echo ""
 	@echo "Targets:"
-	@echo "  all          - Build all executables"
-	@echo "  bundle       - Build XPC service bundle (PRODUCTION PATTERN)"
-	@echo "  demo_simple  - Build the simple demo"
-	@echo "  demo         - Build the multi-process demo (experimental)"
-	@echo "  service      - Build the service program"
-	@echo "  client       - Build the client program"
-	@echo "  main         - Build the original main program"
-	@echo "  run          - Build and run the simple demo"
-	@echo "  run-bundle   - Build and run the XPC service bundle (RECOMMENDED)"
-	@echo "  run-multi    - Build and run the multi-process demo"
-	@echo "  clean        - Remove all built files"
-	@echo "  help         - Show this help message"
+	@echo "  all                  - Build all demos"
+	@echo "  single-process       - Build single-process demo"
+	@echo "  service-based        - Build service-based demo"
+	@echo "  run-single-process   - Run single-process demo"
+	@echo "  run-service-based    - Run service-based demo (RECOMMENDED)"
+	@echo "  clean                - Clean all demos"
+	@echo "  help                 - Show this help"
 	@echo ""
-	@echo "Usage:"
-	@echo "  make run-bundle  # Run the XPC service bundle (recommended)"
-	@echo "  make run         # Run the simple demo"
-	@echo "  make bundle      # Build the XPC service bundle"
-	@echo "  make clean       # Clean up"
+	@echo "Quick Start:"
+	@echo "  make run-single-process   # Start with the simple demo"
+	@echo "  make run-service-based    # Run the production pattern"
+	@echo ""
+	@echo "For more details, see:"
+	@echo "  - demos/single-process/README.md"
+	@echo "  - demos/service-based/README.md"
+	@echo "  - README.md (project overview)"
