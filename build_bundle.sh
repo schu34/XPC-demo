@@ -23,10 +23,10 @@ mkdir -p "${APP_BUNDLE}/Contents/MacOS"
 mkdir -p "${APP_BUNDLE}/Contents/XPCServices/${SERVICE_NAME}/Contents/MacOS"
 
 echo "Compiling service executable..."
-clang -Wall -Wextra -g -fblocks -o "${APP_BUNDLE}/Contents/XPCServices/${SERVICE_NAME}/Contents/MacOS/com.example.DemoService" xpc_service.c -framework Foundation
+clang -Wall -Wextra -g -fblocks -o "${APP_BUNDLE}/Contents/XPCServices/${SERVICE_NAME}/Contents/MacOS/com.example.DemoService" xpc_service.c
 
 echo "Compiling app executable..."
-clang -Wall -Wextra -g -fblocks -o "${APP_BUNDLE}/Contents/MacOS/XPCDemo" xpc_app.c -framework Foundation
+clang -Wall -Wextra -g -fblocks -o "${APP_BUNDLE}/Contents/MacOS/XPCDemo" xpc_app.c 
 
 echo "Copying Info.plist files..."
 cp AppInfo.plist "${APP_BUNDLE}/Contents/Info.plist"
