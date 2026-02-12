@@ -42,10 +42,18 @@ run: demo_simple
 run-multi: demo
 	./demo
 
+# Build the XPC service bundle (production-style)
+bundle:
+	./build_bundle.sh
+
+# Run the XPC service bundle demo
+run-bundle: bundle
+	./build/XPCDemo.app/Contents/MacOS/XPCDemo
+
 # Clean up
 clean:
 	rm -f $(TARGETS) $(MAIN) *.o
-	rm -rf *.dSYM
+	rm -rf *.dSYM build
 
 # Help
 help:
@@ -53,18 +61,20 @@ help:
 	@echo ""
 	@echo "Targets:"
 	@echo "  all          - Build all executables"
-	@echo "  demo_simple  - Build the simple demo (RECOMMENDED)"
+	@echo "  bundle       - Build XPC service bundle (PRODUCTION PATTERN)"
+	@echo "  demo_simple  - Build the simple demo"
 	@echo "  demo         - Build the multi-process demo (experimental)"
 	@echo "  service      - Build the service program"
 	@echo "  client       - Build the client program"
 	@echo "  main         - Build the original main program"
 	@echo "  run          - Build and run the simple demo"
+	@echo "  run-bundle   - Build and run the XPC service bundle (RECOMMENDED)"
 	@echo "  run-multi    - Build and run the multi-process demo"
 	@echo "  clean        - Remove all built files"
 	@echo "  help         - Show this help message"
 	@echo ""
 	@echo "Usage:"
-	@echo "  make            # Build all programs"
-	@echo "  make run        # Run the simple demo (recommended)"
-	@echo "  make run-multi  # Run the multi-process demo"
-	@echo "  make clean      # Clean up"
+	@echo "  make run-bundle  # Run the XPC service bundle (recommended)"
+	@echo "  make run         # Run the simple demo"
+	@echo "  make bundle      # Build the XPC service bundle"
+	@echo "  make clean       # Clean up"

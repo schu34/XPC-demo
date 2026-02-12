@@ -1,12 +1,13 @@
 # XPC C API Demo
 
-This project demonstrates inter-process communication using Apple's XPC (Cross-Process Communication) C API on macOS. It showcases the XPC C API with working examples.
+This project demonstrates inter-process communication using Apple's XPC (Cross-Process Communication) C API on macOS. It showcases multiple XPC patterns including **production-ready XPC service bundles**.
 
 ## Overview
 
 XPC is a structured, asynchronous IPC library native to macOS. This demo project includes:
 
-- **demo_simple**: A working demo showing XPC API mechanics within a single process
+- **XPC Service Bundle** (xpc_service.c + xpc_app.c) - **RECOMMENDED** - Production pattern with true inter-process communication
+- **demo_simple**: Working demo showing XPC API mechanics within a single process
 - **service.c / client.c**: Standalone programs (for reference)
 - **demo.c**: Multi-process attempt (experimental, demonstrates fork limitations with XPC)
 
@@ -14,13 +15,38 @@ XPC is a structured, asynchronous IPC library native to macOS. This demo project
 
 ```
 .
-├── README.md           # This file
-├── Makefile           # Build configuration
-├── demo_simple.c      # Working XPC demo (RECOMMENDED)
-├── demo.c             # Multi-process demo (experimental)
-├── service.c          # Standalone service (reference)
-├── client.c           # Standalone client (reference)
-└── main.c             # Original exploration code
+├── README.md               # This file
+├── Makefile               # Build configuration
+├── build_bundle.sh        # Script to create app bundle
+│
+├── xpc_service.c          # XPC Service using xpc_main() [PRODUCTION PATTERN]
+├── xpc_app.c              # Client app connecting by service name
+├── ServiceInfo.plist      # XPC Service bundle configuration
+├── AppInfo.plist          # Application bundle configuration
+│
+├── demo_simple.c          # Working XPC demo (single process)
+├── demo.c                 # Multi-process demo (experimental)
+├── service.c              # Standalone service (reference)
+├── client.c               # Standalone client (reference)
+└── main.c                 # Original exploration code
+```
+
+### Built Bundle Structure
+
+When you run `make bundle`, it creates:
+
+```
+build/XPCDemo.app/
+└── Contents/
+    ├── MacOS/
+    │   └── XPCDemo                          (client executable)
+    ├── XPCServices/
+    │   └── com.example.DemoService.xpc/
+    │       └── Contents/
+    │           ├── MacOS/
+    │           │   └── com.example.DemoService  (service executable)
+    │           └── Info.plist
+    └── Info.plist
 ```
 
 ## Key XPC Concepts Demonstrated
@@ -83,11 +109,14 @@ xpc_connection_set_event_handler(connection, ^(xpc_object_t event) {
 ## Building
 
 ```bash
-# Build all programs
+# Build XPC service bundle (production pattern - RECOMMENDED)
+make bundle
+
+# Or build all standalone programs
 make
 
 # Or build specific targets
-make demo_simple  # Recommended
+make demo_simple
 make demo
 make service
 make client
@@ -95,9 +124,25 @@ make client
 
 ## Running
 
-### Quick Start - Recommended
+### Quick Start - XPC Service Bundle (RECOMMENDED)
 
-Run the working demo:
+Run the production-style XPC service bundle demo:
+
+```bash
+make run-bundle
+```
+
+This is the **recommended approach** and demonstrates:
+- **True inter-process communication** - Client and service are separate processes
+- **xpc_main()** - Standard XPC service initialization
+- **Named service connection** - Client connects by service name, not endpoint
+- **Application-type service** - One service instance per application
+- **Automatic launch-on-demand** - Service launches when first message is sent
+- **Proper bundle structure** - How real macOS apps embed XPC services
+
+### Alternative: Simple Demo (Single Process)
+
+For a simpler demonstration within a single process:
 
 ```bash
 make run
@@ -105,64 +150,126 @@ make run
 ./demo_simple
 ```
 
-This demonstrates the XPC C API including:
+This demonstrates the XPC C API mechanics:
 - Creating anonymous XPC connections
 - Creating and using endpoints
 - Sending structured messages (dictionaries)
 - Request-reply patterns
 - Different message types (ping, echo, add, info)
 
-### Expected Output
+### Expected Output (XPC Service Bundle)
 
 ```
 ===========================================
-XPC C API Demo - Two Process Communication
+XPC Service Demo - Client Application
 ===========================================
 
-This demo shows the XPC C API in action.
-Since anonymous XPC connections are complex to demo across
-actual separate processes, this version demonstrates the API
-mechanics using a service and client within the same process.
+[Client] Connecting to XPC service: com.example.DemoService
+[Client] Client PID: 71890
 
-For real inter-process XPC communication, you would typically:
-1. Use xpc_main() in an XPC service bundle (.xpc)
-2. Use xpc_connection_create("service.name", queue) from client
-3. Or use xpc_connection_create_mach_service() with launchd
-
-Starting demonstration...
-
-[Service] Creating anonymous XPC listener...
-[Service] Endpoint created (PID: 37103)
-[Service] Setting up event handler...
-[Service] Listener active and waiting for connections...
-
-[Client] Creating connection from endpoint (PID: 37103)...
 [Client] Connection established
+[Client] Service will launch on-demand if not running
 
 [Client] Sending: ping
-[Service] New connection established
-[Service] Received message of type: ping
-[Service] Responding with pong
 [Client] Response: pong
 
-[Client] Sending: echo 'Hello, XPC!'
-[Service] Received message of type: echo
-[Service] Echoing: Hello, XPC!
-[Client] Response: Hello, XPC!
+[Client] Sending: echo 'Hello from XPC client!'
+[Client] Response: Hello from XPC client!
 
 [Client] Sending: add 42 + 23
-[Service] Received message of type: add
-[Service] Adding 42 + 23 = 65
 [Client] Result: 65
 
-...
+[Client] Sending: get service info
+[Client] Service PID: 71896, PPID: 1, Status: running
+                      ^^^^^         ^
+                      Different PID!  Parent is launchd!
+
+[Client] Sending: echo 'XPC services are great!'
+[Client] Response: XPC services are great!
+
+[Client] Sending: add 100 + 200
+[Client] Result: 300
+
+[Client] All messages sent successfully!
+
+===========================================
+Demo complete!
+===========================================
+
+[Client] The XPC service will continue running for a while
+[Client] and will automatically exit when idle
 ```
+
+Notice that:
+- **Client PID: 71890** - The client application
+- **Service PID: 71896** - A completely separate process!
+- **Service PPID: 1** - The service's parent is launchd, showing it's managed by the system
+
+This demonstrates true inter-process communication via XPC!
 
 ## Understanding the Code
 
-### Main Demo ([demo_simple.c](demo_simple.c))
+### XPC Service Bundle (RECOMMENDED - Production Pattern)
 
-This is the recommended starting point. It demonstrates all key XPC C API features:
+#### Service Side ([xpc_service.c](xpc_service.c))
+
+The service uses `xpc_main()`, which is the standard initialization for XPC services:
+
+```c
+int main() {
+    // xpc_main() never returns - it starts the XPC service runtime
+    xpc_main(connection_handler);
+}
+
+static void connection_handler(xpc_connection_t peer) {
+    // Called for each new connection from a client
+    printf("New connection from PID: %d\n", xpc_connection_get_pid(peer));
+
+    xpc_connection_set_event_handler(peer, ^(xpc_object_t event) {
+        // Handle messages from this client
+        handle_peer_event(peer, event);
+    });
+
+    xpc_connection_resume(peer);
+}
+```
+
+Key points:
+- `xpc_main()` initializes the service and handles connections automatically
+- Each client connection gets its own peer connection object
+- Service launches on-demand when first message arrives
+- Service exits automatically when idle
+
+#### Client Side ([xpc_app.c](xpc_app.c))
+
+The client connects by service name - no endpoints needed:
+
+```c
+// Connect to service by its bundle identifier
+xpc_connection_t connection = xpc_connection_create("com.example.DemoService", NULL);
+
+xpc_connection_set_event_handler(connection, ^(xpc_object_t event) {
+    // Handle connection errors
+});
+
+xpc_connection_resume(connection);
+
+// Send messages - service will launch automatically if needed
+xpc_object_t message = xpc_dictionary_create(NULL, NULL, 0);
+xpc_dictionary_set_string(message, "type", "ping");
+
+xpc_object_t reply = xpc_connection_send_message_with_reply_sync(connection, message);
+```
+
+Key points:
+- Connect using the service's `CFBundleIdentifier` from Info.plist
+- Service automatically launches on first message
+- No manual process management needed
+- This is the standard pattern for app-bundled XPC services
+
+### Simple Demo ([demo_simple.c](demo_simple.c))
+
+A simpler demonstration within a single process showing XPC API mechanics:
 
 **Service Side:**
 1. Creates anonymous listener with `xpc_connection_create(NULL, NULL)`
@@ -178,21 +285,28 @@ This is the recommended starting point. It demonstrates all key XPC C API featur
 4. Sends messages with `xpc_connection_send_message_with_reply_sync()`
 5. Processes replies
 
-### Additional Files
+### Additional Reference Files
 
 **[service.c](service.c)** - Standalone service (reference implementation)
 **[client.c](client.c)** - Standalone client (reference implementation)
 **[demo.c](demo.c)** - Multi-process attempt using fork() (experimental)
 
-Note: The multi-process demo demonstrates the challenges of sharing XPC objects across fork() boundaries. For real multi-process XPC, use named services with launchd or XPC service bundles.
+Note: The multi-process demo demonstrates the challenges of sharing XPC objects across fork() boundaries. For real multi-process XPC, use XPC service bundles (as shown above) or Mach services with launchd.
 
 ## XPC API Reference
 
 ### Core Functions Used
 
-- `xpc_connection_create()` - Create anonymous listener
+**XPC Service Bundle Pattern:**
+- `xpc_main()` - Initialize XPC service runtime (service side)
+- `xpc_connection_create("service.name", queue)` - Connect to named service (client side)
+
+**Anonymous Connection Pattern:**
+- `xpc_connection_create(NULL, NULL)` - Create anonymous listener
 - `xpc_connection_create_from_endpoint()` - Create connection from endpoint
 - `xpc_endpoint_create()` - Create endpoint from connection
+
+**Common to All Patterns:**
 - `xpc_connection_set_event_handler()` - Set event/message handler
 - `xpc_connection_resume()` - Activate connection
 - `xpc_connection_send_message()` - Send message (fire-and-forget)
@@ -204,6 +318,7 @@ Note: The multi-process demo demonstrates the challenges of sharing XPC objects 
 - `xpc_dictionary_set_int64()` - Set integer value
 - `xpc_dictionary_get_int64()` - Get integer value
 - `xpc_connection_get_pid()` - Get peer process ID
+- `xpc_connection_cancel()` - Cancel connection
 
 ## Error Handling
 
@@ -231,14 +346,35 @@ The code handles common XPC errors:
 
 ## Production XPC Services
 
-For production use, you'd typically:
+This project now includes a **production-ready XPC service bundle** example!
 
-1. Create an XPC service bundle (`.xpc`) within your app
-2. Use `xpc_connection_create("com.example.myservice", queue)` for named services
-3. Or use `xpc_connection_create_mach_service()` with launchd for system services
-4. Handle service lifecycle with `xpc_main()` in the service
+### What This Demo Provides
 
-This demo focuses on the core C API mechanics using anonymous connections for simplicity.
+The `make run-bundle` command demonstrates the recommended pattern for production apps:
+
+1. **XPC service bundle** (`.xpc`) embedded within your app bundle
+2. **Named service connection** using `xpc_connection_create("com.example.DemoService", NULL)`
+3. **Proper service lifecycle** with `xpc_main()` in the service
+4. **Standard bundle structure** matching real macOS applications
+5. **Automatic process management** - service launches on-demand and exits when idle
+
+### Comparison: Development vs Production Patterns
+
+| Feature | Simple Demo | XPC Service Bundle | Mach Service |
+|---------|------------|-------------------|--------------|
+| **Processes** | Same process | Separate processes | Separate processes |
+| **Connection Type** | Anonymous + endpoint | Named (by bundle ID) | Named (Mach service) |
+| **Service Init** | Manual setup | `xpc_main()` | `xpc_connection_create_mach_service()` |
+| **Deployment** | N/A | Bundle with app | launchd plist |
+| **Launch Management** | Manual | Automatic (launchd) | launchd |
+| **Use Case** | Learning/testing | App-bundled services | System services |
+| **Production Ready** | No | **Yes** | Yes |
+
+### When to Use Each Pattern
+
+- **XPC Service Bundle** (this demo): For services bundled with your application
+- **Mach Services**: For system-wide services managed by launchd
+- **Anonymous Connections**: For dynamic, peer-to-peer IPC (advanced use cases)
 
 ## License
 

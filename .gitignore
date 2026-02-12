@@ -5,6 +5,9 @@ demo
 demo_simple
 main
 
+# Build directory
+build/
+
 # Object files
 *.o
 
