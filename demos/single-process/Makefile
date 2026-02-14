@@ -3,7 +3,6 @@
 
 CC = clang
 CFLAGS = -Wall -Wextra -g -fblocks
-LDFLAGS = -framework Foundation
 
 TARGET = demo_simple
 
@@ -13,7 +12,7 @@ all: $(TARGET)
 
 # Build single-process demo
 demo_simple: demo_simple.c
-	$(CC) $(CFLAGS) -o demo_simple demo_simple.c $(LDFLAGS)
+	$(CC) $(CFLAGS) -o demo_simple demo_simple.c
 
 # Run the demo
 run: demo_simple

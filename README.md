@@ -2,9 +2,59 @@
 
 This project demonstrates inter-process communication using Apple's XPC (Cross-Process Communication) C API on macOS.
 
+## Prerequisites
+
+- **macOS 10.15 (Catalina) or later** - Required for XPC C API support
+- **Xcode Command Line Tools** - Install with: `xcode-select --install`
+- **clang compiler** - Included with Command Line Tools
+
 ## Overview
 
 XPC is a structured, asynchronous IPC library native to macOS. This project contains **two complete demo implementations**, each showing a different approach to using XPC.
+
+## How XPC Works
+
+XPC enables secure inter-process communication on macOS through a service-based architecture:
+
+```mermaid
+sequenceDiagram
+    participant Client as Client App<br/>(XPCDemo.app)
+    participant launchd as launchd<br/>(macOS service manager)
+    participant Service as XPC Service<br/>(com.example.DemoService)
+
+    Note over Client,Service: Initial Setup
+    Client->>Client: xpc_connection_create("com.example.DemoService", NULL)
+    Client->>Client: xpc_connection_set_event_handler()
+    Client->>Client: xpc_connection_resume()
+
+    Note over Client,Service: First Message (Service Launch)
+    Client->>launchd: Send message to service
+    launchd->>launchd: Lookup service by identifier
+    launchd->>Service: Launch service process
+    Service->>Service: xpc_main(connection_handler)
+    Service->>Service: Set up connection handlers
+    launchd->>Service: Forward message
+    Service->>Client: Send reply
+
+    Note over Client,Service: Subsequent Messages (Service Already Running)
+    Client->>Service: xpc_connection_send_message_with_reply_sync()
+    Service->>Service: handle_message()
+    Service->>Service: xpc_dictionary_create_reply()
+    Service->>Client: xpc_connection_send_message(reply)
+
+    Note over Client,Service: Service Lifecycle
+    Client->>Client: xpc_connection_cancel()
+    Service->>Service: Idle timeout (managed by launchd)
+    launchd->>Service: Terminate when idle
+```
+
+**Key Concepts:**
+
+1. **launchd Integration** - macOS's `launchd` manages service lifecycle automatically
+2. **On-Demand Launch** - Services start only when needed, reducing resource usage
+3. **Process Isolation** - Client and service run in separate processes for security
+4. **Automatic Reconnection** - If service crashes, launchd restarts it on next message
+5. **Bundle Discovery** - Services in `XPCServices/` are automatically discovered
 
 ## Project Structure
 
@@ -56,6 +106,26 @@ make run
 - Uses proper `.xpc` bundle structure
 - Service launches on-demand via launchd
 - This is how real macOS apps implement XPC
+
+```mermaid
+graph TB
+    subgraph "XPCDemo.app Bundle"
+        App[Client Application<br/>XPCDemo<br/>PID: 1234]
+        subgraph "XPCServices/"
+            Service[XPC Service<br/>com.example.DemoService<br/>PID: 1235<br/>PPID: 1 launchd]
+        end
+    end
+
+    App -->|"xpc_connection_create()"| Service
+    Service -->|"xpc_connection_send_message()"| App
+
+    launchd[launchd<br/>PID: 1]
+    launchd -.->|launches & manages| Service
+
+    style App fill:#e1f5ff
+    style Service fill:#fff4e1
+    style launchd fill:#f0f0f0
+```
 
 ```bash
 cd demos/service-based
@@ -223,6 +293,141 @@ make clean
 make help
 ```
 
+## Troubleshooting
+
+### Service Won't Launch
+
+**Symptoms**: Client can't connect, or connection times out
+
+**Solutions**:
+1. **Check bundle structure** - Ensure `.xpc` bundle is in `XPCServices/` directory
+2. **Verify Info.plist files** - Both app and service need valid plists
+3. **Check bundle identifier** - `CFBundleIdentifier` in ServiceInfo.plist must match the name used in `xpc_connection_create()`
+4. **Look for crashes** - Open Console.app and filter for your service name to see crash logs
+
+### Connection Fails
+
+**Symptoms**: `XPC_ERROR_CONNECTION_INVALID` immediately after connection attempt
+
+**Solutions**:
+1. **Bundle identifier mismatch** - The service name in code must exactly match `CFBundleIdentifier` in ServiceInfo.plist
+2. **Service not in XPCServices/** - The service bundle must be at `AppName.app/Contents/XPCServices/ServiceName.xpc/`
+3. **Missing CFBundleExecutable** - Ensure ServiceInfo.plist has `CFBundleExecutable` key
+4. **Permissions** - Check that executables have execute permissions (`chmod +x`)
+
+### Service Crashes
+
+**Symptoms**: Connection interrupted errors, service restarts repeatedly
+
+**Solutions**:
+1. **Use Console.app** - Open Console.app, search for your service's process name
+2. **Check crash reports** - Look in `~/Library/Logs/DiagnosticReports/`
+3. **Debug the service** - Attach debugger: `lldb -n YourServiceName` or use Xcode
+4. **Add logging** - Use `printf()` or `os_log()` to track execution flow
+
+### Service Output Not Visible
+
+**Issue**: `printf()` statements in service don't appear in terminal
+
+**Explanation**: XPC services run as separate processes. Their stdout/stderr go to the unified logging system, not your terminal.
+
+**Solutions**:
+1. **Use Console.app** - Open Console.app and filter for your service's process name
+2. **Use os_log** - Adopt unified logging for better integration
+3. **Log to file** - Temporarily write to a file in `/tmp/` for debugging
+
+### Common Build Errors
+
+**"xpc/xpc.h not found"**: Install Xcode Command Line Tools with `xcode-select --install`
+
+**"Undefined symbols for _xpc_..."**: Link against the system libraries (already handled in Makefiles)
+
+## Security Considerations
+
+When building production XPC services, consider these security best practices:
+
+### Client Validation
+
+```c
+// Validate the client's code signature and entitlements
+xpc_connection_t peer;  // from connection_handler
+pid_t client_pid = xpc_connection_get_pid(peer);
+
+// Check client credentials, audit token, etc.
+// Use Security framework APIs to verify code signatures
+```
+
+### Message Parameter Validation
+
+Always validate all message parameters:
+- **Check types** - Use `xpc_get_type()` before accessing values
+- **Validate ranges** - Check that integers are within acceptable bounds
+- **Sanitize strings** - Verify string lengths, check for null terminators
+- **Validate paths** - If accepting file paths, ensure they're within allowed directories
+
+```c
+// Example: Validate integer parameter
+int64_t value = xpc_dictionary_get_int64(message, "count");
+if (value < 0 || value > MAX_ALLOWED_COUNT) {
+    // Reject invalid input
+    return;
+}
+```
+
+### Privilege Separation
+
+- **Minimize privileges** - Services should run with minimal required privileges
+- **Service Type** - Set appropriate `ServiceType` in plist (`Application` vs `System`)
+- **Sandbox** - Consider sandboxing the service for additional isolation
+
+### Production Best Practices
+
+1. **Use code signing** - Sign both app and service bundles
+2. **Validate entitlements** - Check that clients have required entitlements
+3. **Rate limiting** - Implement request rate limiting to prevent abuse
+4. **Error handling** - Never expose internal details in error messages
+5. **Audit logging** - Log security-relevant events
+
+## Advanced Topics
+
+### Asynchronous Messaging
+
+This demo uses synchronous messaging (`xpc_connection_send_message_with_reply_sync()`). For async messaging:
+
+```c
+// Asynchronous request-reply pattern
+xpc_connection_send_message_with_reply(connection, msg,
+    dispatch_get_main_queue(), ^(xpc_object_t reply) {
+    // Handle reply in callback
+    xpc_type_t type = xpc_get_type(reply);
+    if (type != XPC_TYPE_ERROR) {
+        // Process reply
+        const char *response = xpc_dictionary_get_string(reply, "response");
+        printf("Got async reply: %s\n", response);
+    }
+    xpc_release(reply);  // Don't forget to release
+});
+xpc_release(msg);  // Can release immediately - XPC retains it
+```
+
+Benefits of async messaging:
+- Non-blocking - doesn't freeze the calling thread
+- Better for UI applications
+- Can handle multiple concurrent requests
+
+### Connection Lifecycle Management
+
+Production services should handle connection interruptions gracefully:
+
+```c
+// In client connection handler
+if (event == XPC_ERROR_CONNECTION_INTERRUPTED) {
+    // Service crashed or was killed - it will restart
+    // XPC automatically reconnects, no action needed
+    printf("Service interrupted, will reconnect automatically\n");
+}
+```
+
 ## Further Reading
 
 - `man xpc` - Overview of XPC framework
@@ -230,6 +435,7 @@ make help
 - `man xpc_object` - XPC object types and operations
 - `man xpc_dictionary_create` - Dictionary operations
 - `man xpc_main` - XPC service runtime (for bundled services)
+- [Creating XPC Services](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingXPCServices.html) - Apple Developer Documentation
 
 For detailed documentation on each approach:
 - [Single-Process Demo README](demos/single-process/README.md)

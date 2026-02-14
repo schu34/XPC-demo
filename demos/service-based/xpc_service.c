@@ -10,13 +10,13 @@ static void handle_message(xpc_connection_t peer, xpc_object_t message) {
     xpc_type_t type = xpc_get_type(message);
 
     if (type != XPC_TYPE_DICTIONARY) {
-        fprintf(stderr, "[Service] Received non-dictionary message\n");
+        fprintf(stderr, "[Service] Error: Received non-dictionary message\n");
         return;
     }
 
     const char *msg_type = xpc_dictionary_get_string(message, "type");
     if (!msg_type) {
-        fprintf(stderr, "[Service] Message has no type field\n");
+        fprintf(stderr, "[Service] Error: Message has no type field\n");
         return;
     }
 
@@ -67,11 +67,12 @@ static void handle_message(xpc_connection_t peer, xpc_object_t message) {
 
     } else {
         xpc_dictionary_set_string(reply, "error", "Unknown message type");
-        fprintf(stderr, "[Service] Unknown message type: %s\n", msg_type);
+        fprintf(stderr, "[Service] Error: Unknown message type: %s\n", msg_type);
     }
 
     // Send the reply
     xpc_connection_send_message(peer, reply);
+    xpc_release(reply);
 }
 
 static void handle_peer_event(xpc_connection_t peer, xpc_object_t event) {
@@ -88,7 +89,7 @@ static void handle_peer_event(xpc_connection_t peer, xpc_object_t event) {
     } else if (type == XPC_TYPE_DICTIONARY) {
         handle_message(peer, event);
     } else {
-        fprintf(stderr, "[Service] Unexpected event type\n");
+        fprintf(stderr, "[Service] Error: Unexpected event type\n");
     }
 }
 
@@ -106,7 +107,8 @@ static void connection_handler(xpc_connection_t peer) {
 }
 
 int main(int argc __attribute__((unused)), char *argv[] __attribute__((unused))) {
-    // Make output unbuffered for better logging
+    // Disable output buffering to ensure log messages appear immediately
+    // Note: Service stdout/stderr go to unified logging (visible in Console.app)
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
 
@@ -118,6 +120,6 @@ int main(int argc __attribute__((unused)), char *argv[] __attribute__((unused)))
     xpc_main(connection_handler);
 
     // This should never be reached
-    fprintf(stderr, "[Service] xpc_main() returned unexpectedly\n");
+    fprintf(stderr, "[Service] Error: xpc_main() returned unexpectedly\n");
     return 1;
 }

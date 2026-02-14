@@ -41,9 +41,16 @@ static void send_and_print(xpc_connection_t conn, xpc_object_t message, const ch
         }
     }
     printf("\n");
+
+    // Release the reply object (error constants don't need release)
+    if (type != XPC_TYPE_ERROR) {
+        xpc_release(reply);
+    }
 }
 
 int main(int argc, char *argv[]) {
+    // Disable output buffering to ensure messages appear immediately
+    // This is especially helpful when debugging multi-process XPC applications
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
 
@@ -65,7 +72,7 @@ int main(int argc, char *argv[]) {
     xpc_connection_t connection = xpc_connection_create(service_name, NULL);
 
     if (!connection) {
-        fprintf(stderr, "[Client] Failed to create connection to service\n");
+        fprintf(stderr, "[Client] Error: Failed to create connection to service\n");
         return 1;
     }
 
@@ -74,15 +81,15 @@ int main(int argc, char *argv[]) {
         xpc_type_t type = xpc_get_type(event);
         if (type == XPC_TYPE_ERROR) {
             if (event == XPC_ERROR_CONNECTION_INVALID) {
-                fprintf(stderr, "[Client] Service connection became invalid\n");
+                fprintf(stderr, "[Client] Error: Service connection became invalid\n");
             } else if (event == XPC_ERROR_CONNECTION_INTERRUPTED) {
-                fprintf(stderr, "[Client] Service connection interrupted (service may have crashed)\n");
+                fprintf(stderr, "[Client] Error: Service connection interrupted (service may have crashed)\n");
             } else {
-                fprintf(stderr, "[Client] Service connection error\n");
+                fprintf(stderr, "[Client] Error: Service connection error\n");
             }
         } else {
             // Unexpected event in connection handler
-            fprintf(stderr, "[Client] Unexpected event in connection handler\n");
+            fprintf(stderr, "[Client] Error: Unexpected event in connection handler\n");
         }
     });
 
@@ -92,7 +99,8 @@ int main(int argc, char *argv[]) {
     printf("[Client] Connection established\n");
     printf("[Client] Service will launch on-demand if not running\n\n");
 
-    // Give the service a moment to launch (it starts on first message)
+    // Give the service a moment to launch (launchd starts it on first message)
+    // In production code, the first message send would trigger launch automatically
     sleep(1);
 
     // Send test messages
@@ -102,12 +110,14 @@ int main(int argc, char *argv[]) {
     msg = xpc_dictionary_create(NULL, NULL, 0);
     xpc_dictionary_set_string(msg, "type", "ping");
     send_and_print(connection, msg, "ping");
+    xpc_release(msg);
 
     // Test 2: Echo
     msg = xpc_dictionary_create(NULL, NULL, 0);
     xpc_dictionary_set_string(msg, "type", "echo");
     xpc_dictionary_set_string(msg, "data", "Hello from XPC client!");
     send_and_print(connection, msg, "echo 'Hello from XPC client!'");
+    xpc_release(msg);
 
     // Test 3: Add numbers
     msg = xpc_dictionary_create(NULL, NULL, 0);
@@ -115,17 +125,20 @@ int main(int argc, char *argv[]) {
     xpc_dictionary_set_int64(msg, "a", 42);
     xpc_dictionary_set_int64(msg, "b", 23);
     send_and_print(connection, msg, "add 42 + 23");
+    xpc_release(msg);
 
     // Test 4: Get service info
     msg = xpc_dictionary_create(NULL, NULL, 0);
     xpc_dictionary_set_string(msg, "type", "info");
     send_and_print(connection, msg, "get service info");
+    xpc_release(msg);
 
     // Test 5: More echo
     msg = xpc_dictionary_create(NULL, NULL, 0);
     xpc_dictionary_set_string(msg, "type", "echo");
     xpc_dictionary_set_string(msg, "data", "XPC services are great!");
     send_and_print(connection, msg, "echo 'XPC services are great!'");
+    xpc_release(msg);
 
     // Test 6: More math
     msg = xpc_dictionary_create(NULL, NULL, 0);
@@ -133,6 +146,13 @@ int main(int argc, char *argv[]) {
     xpc_dictionary_set_int64(msg, "a", 100);
     xpc_dictionary_set_int64(msg, "b", 200);
     send_and_print(connection, msg, "add 100 + 200");
+    xpc_release(msg);
+
+    // Test 7: Invalid message
+    msg = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_dictionary_set_string(msg, "type", "unknown");
+    send_and_print(connection, msg, "unknown message type");
+    xpc_release(msg);
 
     printf("[Client] All messages sent successfully!\n");
     printf("\n===========================================\n");

@@ -21,14 +21,14 @@ The **XPC service bundle demo** shows:
 
 ### Production Pattern (Recommended)
 
-1. **[xpc_service.c](xpc_service.c)** - Service using `xpc_main()`
-2. **[xpc_app.c](xpc_app.c)** - Client connecting by service name
-3. **[ServiceInfo.plist](ServiceInfo.plist)** - Service bundle config
-4. **[build_bundle.sh](build_bundle.sh)** - Bundle creation script
+1. **[xpc_service.c](demos/service-based/xpc_service.c)** - Service using `xpc_main()`
+2. **[xpc_app.c](demos/service-based/xpc_app.c)** - Client connecting by service name
+3. **[ServiceInfo.plist](demos/service-based/ServiceInfo.plist)** - Service bundle config
+4. **[build_bundle.sh](demos/service-based/build_bundle.sh)** - Bundle creation script
 
 ### Learning/Simple Pattern
 
-1. **[demo_simple.c](demo_simple.c)** - All-in-one demonstration
+1. **[demo_simple.c](demos/single-process/demo_simple.c)** - All-in-one demonstration
 
 ## Key XPC Concepts
 

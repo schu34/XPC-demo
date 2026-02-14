@@ -3,7 +3,6 @@
 
 CC = clang
 CFLAGS = -Wall -Wextra -g -fblocks
-LDFLAGS = -framework Foundation
 
 .PHONY: all clean run bundle help
 

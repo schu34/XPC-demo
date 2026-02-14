@@ -19,14 +19,14 @@ static void handle_message(xpc_connection_t peer, xpc_object_t message)
 
     if (type != XPC_TYPE_DICTIONARY)
     {
-        fprintf(stderr, "[Service] Received non-dictionary message\n");
+        fprintf(stderr, "[Service] Error: Received non-dictionary message\n");
         return;
     }
 
     const char *msg_type = xpc_dictionary_get_string(message, "type");
     if (!msg_type)
     {
-        fprintf(stderr, "[Service] Message has no type field\n");
+        fprintf(stderr, "[Service] Error: Message has no type field\n");
         return;
     }
 
@@ -71,7 +71,7 @@ static void handle_message(xpc_connection_t peer, xpc_object_t message)
     else
     {
         xpc_dictionary_set_string(reply, "error", "Unknown message type");
-        fprintf(stderr, "[Service] Unknown message type: %s\n", msg_type);
+        fprintf(stderr, "[Service] Error: Unknown message type: %s\n", msg_type);
     }
 
     xpc_connection_send_message(peer, reply);
@@ -107,7 +107,7 @@ static void send_and_print(xpc_connection_t conn, xpc_object_t message, const ch
     xpc_type_t type = xpc_get_type(reply);
     if (type == XPC_TYPE_ERROR)
     {
-        fprintf(stderr, "[Client] Error: request failed\n");
+        fprintf(stderr, "[Client] Error: Request failed\n");
     }
     else
     {
@@ -139,17 +139,19 @@ static void send_and_print(xpc_connection_t conn, xpc_object_t message, const ch
 
 int main(int argc __attribute__((unused)), char *argv[] __attribute__((unused)))
 {
+    // Disable output buffering to ensure messages appear immediately
+    // This is especially helpful when debugging or demonstrating async operations
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
 
     printf("===========================================\n");
-    printf("XPC C API Demo - Two Process Communication\n");
+    printf("XPC C API Demo - Single Process\n");
     printf("===========================================\n\n");
 
     printf("This demo shows the XPC C API in action.\n");
-    printf("Since anonymous XPC connections are complex to demo across\n");
-    printf("actual separate processes, this version demonstrates the API\n");
-    printf("mechanics using a service and client within the same process.\n\n");
+    printf("The service and client run in the SAME PROCESS, which makes it\n");
+    printf("easier to understand XPC APIs without the complexity of separate\n");
+    printf("processes. This is perfect for learning!\n\n");
 
     printf("For real inter-process XPC communication, you would typically:\n");
     printf("1. Use xpc_main() in an XPC service bundle (.xpc)\n");
@@ -164,7 +166,7 @@ int main(int argc __attribute__((unused)), char *argv[] __attribute__((unused)))
 
     if (!listener)
     {
-        fprintf(stderr, "[Service] Failed to create listener\n");
+        fprintf(stderr, "[Service] Error: Failed to create listener\n");
         return 1;
     }
 
@@ -173,7 +175,7 @@ int main(int argc __attribute__((unused)), char *argv[] __attribute__((unused)))
 
     if (!endpoint)
     {
-        fprintf(stderr, "[Service] Failed to create endpoint\n");
+        fprintf(stderr, "[Service] Error: Failed to create endpoint\n");
         return 1;
     }
 
@@ -203,7 +205,7 @@ int main(int argc __attribute__((unused)), char *argv[] __attribute__((unused)))
 
     if (!client)
     {
-        fprintf(stderr, "[Client] Failed to create connection\n");
+        fprintf(stderr, "[Client] Error: Failed to create connection\n");
         return 1;
     }
 
@@ -213,11 +215,11 @@ int main(int argc __attribute__((unused)), char *argv[] __attribute__((unused)))
       {
           if (event == XPC_ERROR_CONNECTION_INVALID)
           {
-              fprintf(stderr, "[Client] Connection invalid\n");
+              fprintf(stderr, "[Client] Error: Connection invalid\n");
           }
           else if (event == XPC_ERROR_CONNECTION_INTERRUPTED)
           {
-              fprintf(stderr, "[Client] Connection interrupted\n");
+              fprintf(stderr, "[Client] Error: Connection interrupted\n");
           }
       }
     });
@@ -225,7 +227,8 @@ int main(int argc __attribute__((unused)), char *argv[] __attribute__((unused)))
     xpc_connection_resume(client);
     printf("[Client] Connection established\n\n");
 
-    // Give event loop time to process
+    // Give the XPC runtime a moment to set up event handlers
+    // In production code, you would rely on connection state callbacks instead
     sleep(1);
 
     // Send test messages
