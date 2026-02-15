@@ -9,27 +9,38 @@
 
 // Client application that connects to the XPC service by name
 
-static void send_and_print(xpc_connection_t conn, xpc_object_t message, const char *desc) {
+static void send_and_print(xpc_connection_t conn, xpc_object_t message, const char *desc)
+{
     printf("[Client] Sending: %s\n", desc);
 
     xpc_object_t reply = xpc_connection_send_message_with_reply_sync(conn, message);
 
     xpc_type_t type = xpc_get_type(reply);
-    if (type == XPC_TYPE_ERROR) {
+    if (type == XPC_TYPE_ERROR)
+    {
         print_xpc_error("Client", reply);
-    } else {
+    }
+    else
+    {
         const char *response = xpc_dictionary_get_string(reply, "response");
         const char *error = xpc_dictionary_get_string(reply, "error");
         int64_t result = xpc_dictionary_get_int64(reply, "result");
         int64_t pid = xpc_dictionary_get_int64(reply, "pid");
 
-        if (response) {
+        if (response)
+        {
             printf("[Client] Response: %s\n", response);
-        } else if (error) {
+        }
+        else if (error)
+        {
             fprintf(stderr, "[Client] Error: %s\n", error);
-        } else if (result != 0 || xpc_dictionary_get_value(reply, "result")) {
+        }
+        else if (result != 0 || xpc_dictionary_get_value(reply, "result"))
+        {
             printf("[Client] Result: %lld\n", result);
-        } else if (pid != 0) {
+        }
+        else if (pid != 0)
+        {
             int64_t ppid = xpc_dictionary_get_int64(reply, "ppid");
             const char *status = xpc_dictionary_get_string(reply, "status");
             printf("[Client] Service PID: %lld, PPID: %lld, Status: %s\n",
@@ -39,12 +50,14 @@ static void send_and_print(xpc_connection_t conn, xpc_object_t message, const ch
     printf("\n");
 
     // Release the reply object (error constants don't need release)
-    if (type != XPC_TYPE_ERROR) {
+    if (type != XPC_TYPE_ERROR)
+    {
         xpc_release(reply);
     }
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     // Disable output buffering to ensure messages appear immediately
     // This is especially helpful when debugging multi-process XPC applications
     setvbuf(stdout, NULL, _IONBF, 0);
@@ -56,7 +69,8 @@ int main(int argc, char *argv[]) {
 
     // Determine service name from command line or use default
     const char *service_name = "com.example.DemoService";
-    if (argc > 1) {
+    if (argc > 1)
+    {
         service_name = argv[1];
     }
 
@@ -67,24 +81,31 @@ int main(int argc, char *argv[]) {
     // The service must be in the app's XPCServices directory or be a system framework service
     xpc_connection_t connection = xpc_connection_create(service_name, NULL);
 
-    if (!connection) {
+    if (!connection)
+    {
         print_error("Client", "Failed to create connection to service");
         return 1;
     }
 
     // Set up error handler for the connection
     xpc_connection_set_event_handler(connection, ^(xpc_object_t event) {
-        xpc_type_t type = xpc_get_type(event);
-        if (type == XPC_TYPE_ERROR) {
-            if (event == XPC_ERROR_CONNECTION_INTERRUPTED) {
-                print_error("Client", "Service connection interrupted (service may have crashed)");
-            } else {
-                print_xpc_error("Client", event);
-            }
-        } else {
-            // Unexpected event in connection handler
-            print_error("Client", "Unexpected event in connection handler");
-        }
+      xpc_type_t type = xpc_get_type(event);
+      if (type == XPC_TYPE_ERROR)
+      {
+          if (event == XPC_ERROR_CONNECTION_INTERRUPTED)
+          {
+              print_error("Client", "Service connection interrupted (service may have crashed)");
+          }
+          else
+          {
+              print_xpc_error("Client", event);
+          }
+      }
+      else
+      {
+          // Unexpected event in connection handler
+          print_error("Client", "Unexpected event in connection handler");
+      }
     });
 
     // Activate the connection
