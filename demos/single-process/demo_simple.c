@@ -6,7 +6,9 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <string.h>
+#include <stdarg.h>
 #include <xpc/connection.h>
+#include "../xpc_helpers.h"
 
 // This demo shows XPC communication between two processes
 // Instead of using anonymous connections (which are complex to share),
@@ -19,14 +21,14 @@ static void handle_message(xpc_connection_t peer, xpc_object_t message)
 
     if (type != XPC_TYPE_DICTIONARY)
     {
-        fprintf(stderr, "[Service] Error: Received non-dictionary message\n");
+        print_error("Service", "Received non-dictionary message");
         return;
     }
 
     const char *msg_type = xpc_dictionary_get_string(message, "type");
     if (!msg_type)
     {
-        fprintf(stderr, "[Service] Error: Message has no type field\n");
+        print_error("Service", "Message has no type field");
         return;
     }
 
@@ -71,7 +73,7 @@ static void handle_message(xpc_connection_t peer, xpc_object_t message)
     else
     {
         xpc_dictionary_set_string(reply, "error", "Unknown message type");
-        fprintf(stderr, "[Service] Error: Unknown message type: %s\n", msg_type);
+        print_error("Service", "Unknown message type: %s", msg_type);
     }
 
     xpc_connection_send_message(peer, reply);
@@ -107,7 +109,7 @@ static void send_and_print(xpc_connection_t conn, xpc_object_t message, const ch
     xpc_type_t type = xpc_get_type(reply);
     if (type == XPC_TYPE_ERROR)
     {
-        fprintf(stderr, "[Client] Error: Request failed\n");
+        print_xpc_error("Client", reply);
     }
     else
     {
@@ -166,7 +168,7 @@ int main(int argc __attribute__((unused)), char *argv[] __attribute__((unused)))
 
     if (!listener)
     {
-        fprintf(stderr, "[Service] Error: Failed to create listener\n");
+        print_error("Service", "Failed to create listener");
         return 1;
     }
 
@@ -175,7 +177,7 @@ int main(int argc __attribute__((unused)), char *argv[] __attribute__((unused)))
 
     if (!endpoint)
     {
-        fprintf(stderr, "[Service] Error: Failed to create endpoint\n");
+        print_error("Service", "Failed to create endpoint");
         return 1;
     }
 
@@ -205,7 +207,7 @@ int main(int argc __attribute__((unused)), char *argv[] __attribute__((unused)))
 
     if (!client)
     {
-        fprintf(stderr, "[Client] Error: Failed to create connection\n");
+        print_error("Client", "Failed to create connection");
         return 1;
     }
 
@@ -213,14 +215,7 @@ int main(int argc __attribute__((unused)), char *argv[] __attribute__((unused)))
       xpc_type_t type = xpc_get_type(event);
       if (type == XPC_TYPE_ERROR)
       {
-          if (event == XPC_ERROR_CONNECTION_INVALID)
-          {
-              fprintf(stderr, "[Client] Error: Connection invalid\n");
-          }
-          else if (event == XPC_ERROR_CONNECTION_INTERRUPTED)
-          {
-              fprintf(stderr, "[Client] Error: Connection interrupted\n");
-          }
+          print_xpc_error("Client", event);
       }
     });
 

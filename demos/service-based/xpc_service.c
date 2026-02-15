@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <xpc/xpc.h>
+#include <stdarg.h>
+#include "../xpc_helpers.h"
 
 // XPC Service implementation using xpc_main()
 // This is the standard pattern for XPC services bundled within an application
@@ -10,13 +12,13 @@ static void handle_message(xpc_connection_t peer, xpc_object_t message) {
     xpc_type_t type = xpc_get_type(message);
 
     if (type != XPC_TYPE_DICTIONARY) {
-        fprintf(stderr, "[Service] Error: Received non-dictionary message\n");
+        print_error("Service", "Received non-dictionary message");
         return;
     }
 
     const char *msg_type = xpc_dictionary_get_string(message, "type");
     if (!msg_type) {
-        fprintf(stderr, "[Service] Error: Message has no type field\n");
+        print_error("Service", "Message has no type field");
         return;
     }
 
@@ -67,7 +69,7 @@ static void handle_message(xpc_connection_t peer, xpc_object_t message) {
 
     } else {
         xpc_dictionary_set_string(reply, "error", "Unknown message type");
-        fprintf(stderr, "[Service] Error: Unknown message type: %s\n", msg_type);
+        print_error("Service", "Unknown message type: %s", msg_type);
     }
 
     // Send the reply
@@ -89,7 +91,7 @@ static void handle_peer_event(xpc_connection_t peer, xpc_object_t event) {
     } else if (type == XPC_TYPE_DICTIONARY) {
         handle_message(peer, event);
     } else {
-        fprintf(stderr, "[Service] Error: Unexpected event type\n");
+        print_error("Service", "Unexpected event type");
     }
 }
 
@@ -120,6 +122,6 @@ int main(int argc __attribute__((unused)), char *argv[] __attribute__((unused)))
     xpc_main(connection_handler);
 
     // This should never be reached
-    fprintf(stderr, "[Service] Error: xpc_main() returned unexpectedly\n");
+    print_error("Service", "xpc_main() returned unexpectedly");
     return 1;
 }

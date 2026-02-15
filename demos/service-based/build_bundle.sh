@@ -39,5 +39,5 @@ echo
 echo "To run the demo:"
 echo "  ./build/XPCDemo.app/Contents/MacOS/XPCDemo"
 echo
-echo "Or simply:"
-echo "  make run-bundle"
+echo "Or from the top-level directory:"
+echo "  make run-service-based"

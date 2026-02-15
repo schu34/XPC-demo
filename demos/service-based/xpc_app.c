@@ -4,6 +4,8 @@
 #include <xpc/xpc.h>
 #include <dispatch/dispatch.h>
 #include <unistd.h>
+#include <stdarg.h>
+#include "../xpc_helpers.h"
 
 // Client application that connects to the XPC service by name
 
@@ -14,13 +16,7 @@ static void send_and_print(xpc_connection_t conn, xpc_object_t message, const ch
 
     xpc_type_t type = xpc_get_type(reply);
     if (type == XPC_TYPE_ERROR) {
-        if (reply == XPC_ERROR_CONNECTION_INVALID) {
-            fprintf(stderr, "[Client] Error: Connection invalid\n");
-        } else if (reply == XPC_ERROR_CONNECTION_INTERRUPTED) {
-            fprintf(stderr, "[Client] Error: Connection interrupted\n");
-        } else {
-            fprintf(stderr, "[Client] Error: Request failed\n");
-        }
+        print_xpc_error("Client", reply);
     } else {
         const char *response = xpc_dictionary_get_string(reply, "response");
         const char *error = xpc_dictionary_get_string(reply, "error");
@@ -72,7 +68,7 @@ int main(int argc, char *argv[]) {
     xpc_connection_t connection = xpc_connection_create(service_name, NULL);
 
     if (!connection) {
-        fprintf(stderr, "[Client] Error: Failed to create connection to service\n");
+        print_error("Client", "Failed to create connection to service");
         return 1;
     }
 
@@ -80,16 +76,14 @@ int main(int argc, char *argv[]) {
     xpc_connection_set_event_handler(connection, ^(xpc_object_t event) {
         xpc_type_t type = xpc_get_type(event);
         if (type == XPC_TYPE_ERROR) {
-            if (event == XPC_ERROR_CONNECTION_INVALID) {
-                fprintf(stderr, "[Client] Error: Service connection became invalid\n");
-            } else if (event == XPC_ERROR_CONNECTION_INTERRUPTED) {
-                fprintf(stderr, "[Client] Error: Service connection interrupted (service may have crashed)\n");
+            if (event == XPC_ERROR_CONNECTION_INTERRUPTED) {
+                print_error("Client", "Service connection interrupted (service may have crashed)");
             } else {
-                fprintf(stderr, "[Client] Error: Service connection error\n");
+                print_xpc_error("Client", event);
             }
         } else {
             // Unexpected event in connection handler
-            fprintf(stderr, "[Client] Error: Unexpected event in connection handler\n");
+            print_error("Client", "Unexpected event in connection handler");
         }
     });
 

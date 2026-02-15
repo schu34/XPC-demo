@@ -4,10 +4,10 @@
 
 ```bash
 # Run the recommended XPC service bundle demo (production pattern)
-make run-bundle
+make run-service-based
 
 # Or run the simple single-process demo
-make run
+make run-single-process
 ```
 
 ## What You'll See
@@ -80,7 +80,7 @@ int64_t result = xpc_dictionary_get_int64(reply, "result");
 
 ## Bundle Structure
 
-After `make bundle`, you get:
+After `make service-based`, you get:
 
 ```
 build/XPCDemo.app/
@@ -99,13 +99,13 @@ build/XPCDemo.app/
 
 ```bash
 # Build and run production demo
-make run-bundle
-
-# Build bundle only
-make bundle
+make run-service-based
 
 # Run simple demo
-make run
+make run-single-process
+
+# Build all demos
+make all
 
 # Clean everything
 make clean
